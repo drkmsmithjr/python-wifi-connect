@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+exec &> /var/log/wifi-connect-headless-rpi.log
 # Command line args:
 #  -a <HTTP server address>     Default: 192.168.42.1
 #  -p <HTTP server port>        Default: 80

@@ -5,19 +5,16 @@ import subprocess, time
 DEFAULT_GATEWAY="192.168.42.1"
 DEFAULT_DHCP_RANGE="192.168.42.2,192.168.42.254"
 DEFAULT_INTERFACE="wlan0" # use 'ip link show' to see list of interfaces
-
+ps = None
 
 def stop():
-    ps = subprocess.Popen("ps -e | grep ' dnsmasq' | cut -c 1-6", shell=True, stdout=subprocess.PIPE)
-    pid = ps.stdout.read()
-    ps.stdout.close()
-    ps.wait()
-    pid = pid.decode('utf-8')
-    pid = pid.strip()
-    if 0 < len(pid):
-        print(f"Killing dnsmasq, PID='{pid}'")
-        ps = subprocess.Popen(f"kill -9 {pid}", shell=True)
-        ps.wait()
+    global ps
+    if ps is not None:
+        print(f'Killing dnsmasq, PID={ps.pid}')
+        ps.kill()
+        ps = None
+    else:
+        print (f'dnsmasq was not started.')
 
 
 def start():
@@ -38,6 +35,7 @@ def start():
     args.append(f"--no-hosts" )
 
     # run dnsmasq in the background and save a reference to the object
+    global ps
     ps = subprocess.Popen(args)
     # don't wait here, proc runs in background until we kill it.
 

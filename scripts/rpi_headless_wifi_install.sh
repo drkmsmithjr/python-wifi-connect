@@ -15,10 +15,11 @@ check_os_version () {
     if [ -f /etc/os-release ]; then
         _version=$(grep -oP 'VERSION="\K[^"]+' /etc/os-release)
     fi
-    if [ "$_version" != "11 (bullseye)" ]; then
+    if [ "$_version" != "11 (bullseye)" ] && [ "$_version" != "12 (bookworm)" ]; then
         echo "ERROR: Distribution not based on Raspbian 11 (bullyeye)."
         exit 1
     fi
+    echo $_version
 }
 
 # install manager enables the Network Manager but does not start until reboot.   
@@ -57,8 +58,8 @@ install_network_manager () {
     #apt-get clean
 }
 
-# This only works on Linux raspberry 11 (bullseye) 
-check_os_version
+# check if we're on debian 11 or 12, all other are not accepted.
+VERSION=$(check_os_version)
 
 # Confirm the user wants to install...
 #read -r -p "Do you want to install? [y/N]: " response
@@ -76,10 +77,14 @@ TOPDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # The top of our source tree is the parent of this scripts dir
 TOPDIR+=/..
 cd $TOPDIR
-
+echo $VERSION
+if [ "$VERSION" == "12 (bookworm)" ]; then
+    apt-get install -y libglib2.0-dev python-dbus-dev libdbus-1-dev
+fi;
 # Installing pip3 and venv..  Raspberry lite does not have them
 echo "Installing python3-pip ... pip3 required"
 apt-get install -y python3-pip
+rm /etc/pip.conf
 echo "Installing python3-venv ... vend required" 
 apt-get install -y python3-venv
 
@@ -110,7 +115,7 @@ if [[ "$OSTYPE" == "linux"* ]]; then
 
     # Install the python modules our app uses into our venv
     echo "Installing python modules..."
-    pip3 install -r $TOPDIR/config/requirements.txt
+    pip3 install -r $TOPDIR/config/requirements.txt --trusted-host www.piwheels.org 
 
     # Deactivate the venv
     deactivate

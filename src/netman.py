@@ -5,6 +5,7 @@
 # over (the module documentation is scant).
 
 import NetworkManager
+from dotenv import load_dotenv
 import uuid, os, sys, time, socket
 
 # This is needed to work with NetworkManager 1.30.6 and python-networkmanager 2.2      
@@ -157,7 +158,8 @@ def get_list_of_access_points():
 #------------------------------------------------------------------------------
 # Get hotspot SSID name.
 def get_hotspot_SSID():
-    return 'Rpi-'+os.uname()[1]
+    load_dotenv()
+    return os.getenv('HOTSPOT_SSID', 'Default-SSID')
 
 
 #------------------------------------------------------------------------------
@@ -223,6 +225,7 @@ def connect_to_AP(conn_type=None, conn_name=GENERIC_CONNECTION_NAME, \
                        'phase2-auth': 'mschapv2'},
             'connection': {'id': conn_name,
                            'type': '802-11-wireless',
+                           'interface-name': 'wlan0',
                            'uuid': str(uuid.uuid4())},
             'ipv4': {'method': 'auto'},
             'ipv6': {'method': 'auto'}
@@ -234,6 +237,7 @@ def connect_to_AP(conn_type=None, conn_name=GENERIC_CONNECTION_NAME, \
                                 'ssid': ssid},
             'connection': {'id': conn_name,
                            'type': '802-11-wireless',
+                           'interface-name': 'wlan0',
                            'uuid': str(uuid.uuid4())},
             'ipv4': {'method': 'auto'},
             'ipv6': {'method': 'auto'}
@@ -248,6 +252,7 @@ def connect_to_AP(conn_type=None, conn_name=GENERIC_CONNECTION_NAME, \
                 {'key-mgmt': 'wpa-psk', 'psk': password},
             'connection': {'id': conn_name,
                         'type': '802-11-wireless',
+                        'interface-name': 'wlan0',
                         'uuid': str(uuid.uuid4())},
             'ipv4': {'method': 'auto'},
             'ipv6': {'method': 'auto'}
@@ -277,6 +282,11 @@ def connect_to_AP(conn_type=None, conn_name=GENERIC_CONNECTION_NAME, \
 
         #print(f"new connection {conn_dict} type={conn_str}")
 
+        connections = NetworkManager.Settings.ListConnections()
+        for connection in connections:
+            if connection.GetSettings()["connection"]["id"] == conn_name:
+                print(f"connect_to_AP() Warning: Connection {conn_name} already exists, deleting it first.")
+                connection.Delete()
         NetworkManager.Settings.AddConnection(conn_dict)
         print(f"Added connection {conn_name} of type {conn_str}")
 
@@ -285,16 +295,21 @@ def connect_to_AP(conn_type=None, conn_name=GENERIC_CONNECTION_NAME, \
         connections = dict([(x.GetSettings()['connection']['id'], x) for x in connections])
         conn = connections[conn_name]
 
-        # Find a suitable device
-        ctype = conn.GetSettings()['connection']['type']
-        dtype = {'802-11-wireless': NetworkManager.NM_DEVICE_TYPE_WIFI}.get(ctype,ctype)
+        # Find the device on which the connection was created
         devices = NetworkManager.NetworkManager.GetDevices()
 
         for dev in devices:
-            if dev.DeviceType == dtype:
-                break
-        else:
-            print(f"connect_to_AP() Error: No suitable and available {ctype} device found.")
+            if dev.DeviceType == NetworkManager.NM_DEVICE_TYPE_WIFI and dev.Mode == NetworkManager.NM_802_11_MODE_INFRA:
+                dev_available = False
+                for devcon in dev.AvailableConnections:
+                    if devcon.uuid == conn.uuid:
+                        dev_available = True
+                        break
+                if dev_available:
+                    break
+
+        if not dev_available:
+            print(f"connect_to_AP() Error: No suitable and available device found for {conn_name} ({conn.uuid})")
             return False
 
         # And connect

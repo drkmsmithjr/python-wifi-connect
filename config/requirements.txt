@@ -1,1 +1,2 @@
-python-networkmanager==2.2
+python-networkmanager-legacy==2.2.1
+python-dotenv
